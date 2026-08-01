@@ -1,9 +1,20 @@
 import { NextResponse } from "next/server";
-import { PDFParse } from "pdf-parse";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
 export const runtime = "nodejs";
+
+// 1. POLYFILL BROWSER GLOBALS FOR VERCEL
+// Must run before PDFParse / pdfjs-dist initializes
+if (typeof globalThis.DOMMatrix === "undefined") {
+  globalThis.DOMMatrix = class DOMMatrix {
+    a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
+    m11 = 1; m12 = 0; m21 = 0; m22 = 1; m41 = 0; m42 = 0;
+    constructor() {}
+  };
+}
+
+// 2. IMPORT AFTER POLYFILL
+import { PDFParse } from "pdf-parse";
 
 const NOFO_REPOSITORY = {
   "SS4A-FY26": {
@@ -19,17 +30,6 @@ const NOFO_REPOSITORY = {
     deadline: "2026-02-24T17:00:00Z",
   },
 };
-
-const pdfWorkerPath = path.join(
-  process.cwd(),
-  "node_modules",
-  "pdfjs-dist",
-  "legacy",
-  "build",
-  "pdf.worker.mjs"
-);
-
-PDFParse.setWorker(pathToFileURL(pdfWorkerPath).href);
 
 function parseFundingLetter(letterText, requiredMatchDollars) {
   const flags = [];
@@ -52,7 +52,7 @@ function parseFundingLetter(letterText, requiredMatchDollars) {
   if (extractedAmount < requiredMatchDollars) {
     const shortfall = requiredMatchDollars - extractedAmount;
     flags.push(
-      "Math Discrepancy: Letter amount ($" + extractedAmount.toLocaleString() +") does not cover required local match ($" + requiredMatchDollars.toLocaleString() + "). Shortfall: $" + shortfall.toLocaleString() + "."
+      "Math Discrepancy: Letter amount ($" + extractedAmount.toLocaleString() + ") does not cover required local match ($" + requiredMatchDollars.toLocaleString() + "). Shortfall: $" + shortfall.toLocaleString() + "."
     );
   }
 
