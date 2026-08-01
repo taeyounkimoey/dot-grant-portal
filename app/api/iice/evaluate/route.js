@@ -31,22 +31,19 @@ async function getPDFParse() {
     }
   }
 
+  // pdf.js resolves its worker with `import(GlobalWorkerOptions.workerSrc)` — a
+  // variable specifier that neither Turbopack nor Vercel's file tracer can follow,
+  // so the worker never ships and "Setting up fake worker failed" is thrown.
+  // It checks `globalThis.pdfjsWorker` first, so preloading it here with a static
+  // literal specifier keeps the module traceable and skips that lookup entirely.
+  if (typeof globalThis.pdfjsWorker === "undefined") {
+    globalThis.pdfjsWorker = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+  }
+
   const pdfParseModule = await import("pdf-parse");
   PDFParseClass = pdfParseModule.PDFParse;
   return PDFParseClass;
 }
-
-// 1. POLYFILL BROWSER GLOBALS FOR VERCEL
-// Must run before PDFParse / pdfjs-dist initializes
-if (typeof globalThis.DOMMatrix === "undefined") {
-  globalThis.DOMMatrix = class DOMMatrix {
-    a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
-    m11 = 1; m12 = 0; m21 = 0; m22 = 1; m41 = 0; m42 = 0;
-    constructor() {}
-  };
-}
-
-// 2. IMPORT AFTER POLYFILL
 
 const NOFO_REPOSITORY = {
   "SS4A-FY26": {
