@@ -1,7 +1,40 @@
 import { NextResponse } from "next/server";
-import path from "node:path";
 
 export const runtime = "nodejs";
+
+let PDFParseClass = null;
+
+async function getPDFParse() {
+  if (PDFParseClass) return PDFParseClass;
+
+  try {
+    const canvas = await import("@napi-rs/canvas");
+    if (typeof globalThis.DOMMatrix === "undefined") globalThis.DOMMatrix = canvas.DOMMatrix;
+    if (typeof globalThis.ImageData === "undefined") globalThis.ImageData = canvas.ImageData;
+    if (typeof globalThis.Path2D === "undefined") globalThis.Path2D = canvas.Path2D;
+  } catch {
+    // Fallback for environments where native canvas binding is unavailable.
+    if (typeof globalThis.DOMMatrix === "undefined") {
+      globalThis.DOMMatrix = class DOMMatrix {
+        constructor() {}
+      };
+    }
+    if (typeof globalThis.ImageData === "undefined") {
+      globalThis.ImageData = class ImageData {
+        constructor() {}
+      };
+    }
+    if (typeof globalThis.Path2D === "undefined") {
+      globalThis.Path2D = class Path2D {
+        constructor() {}
+      };
+    }
+  }
+
+  const pdfParseModule = await import("pdf-parse");
+  PDFParseClass = pdfParseModule.PDFParse;
+  return PDFParseClass;
+}
 
 // 1. POLYFILL BROWSER GLOBALS FOR VERCEL
 // Must run before PDFParse / pdfjs-dist initializes
@@ -14,7 +47,6 @@ if (typeof globalThis.DOMMatrix === "undefined") {
 }
 
 // 2. IMPORT AFTER POLYFILL
-import { PDFParse } from "pdf-parse";
 
 const NOFO_REPOSITORY = {
   "SS4A-FY26": {
@@ -108,6 +140,7 @@ export async function POST(request) {
     const uploaded = form.get("funding_letter_pdf");
 
     if (uploaded && typeof uploaded === "object" && "arrayBuffer" in uploaded) {
+      const PDFParse = await getPDFParse();
       const bytes = new Uint8Array(await uploaded.arrayBuffer());
       const parser = new PDFParse({ data: bytes });
       const parsed = await parser.getText();

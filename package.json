@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.3",
     "@trussworks/react-uswds": "^11.1.0",
     "bootstrap": "^5.3.8",
     "express": "^5.2.1",
